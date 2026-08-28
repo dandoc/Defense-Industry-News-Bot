@@ -18,8 +18,14 @@ jobs:
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v4
+
+      - name: 뉴스 캐시 DB 복원 (중복 방지용)
+        uses: actions/cache/restore@v4
         with:
-          fetch-depth: 0
+          path: data/news.db
+          key: news-db-${{ github.run_id }}
+          restore-keys: |
+            news-db-
 
       - name: Python 3.11 설정
         uses: actions/setup-python@v5
@@ -43,8 +49,9 @@ jobs:
         run: |
           python webhook_cron.py
 
-      - name: 전송 이력 DB 갱신 및 커밋 (중복 방지용)
-        uses: stefanzweifel/git-auto-commit-action@v5
+      - name: 뉴스 캐시 DB 저장 (중복 방지용)
+        uses: actions/cache/save@v4
+        if: always()
         with:
-          commit_message: "chore: update sent news db cache [skip ci]"
-          file_pattern: "data/news.db"
+          path: data/news.db
+          key: news-db-${{ github.run_id }}
