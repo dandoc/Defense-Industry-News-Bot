@@ -63,16 +63,16 @@ class TestDefenseNewsBot(unittest.TestCase):
         self.assertIn("항공/우주/드론", classified2.domains)
         self.assertIn("KAI(한국항공우주)", classified2.companies)
 
-        # 3. 천궁-II / LIG넥스원 / 유도무기 기사
+        # 3. 천궁-II / LIG D&A / 유도무기 기사
         item3 = NewsItem(
-            title="LIG넥스원, 천궁-II 요격 미사일 중동 수출 추가 수주 유력",
+            title="LIG D&A, 천궁-II 요격 미사일 중동 수출 추가 수주 유력",
             url="https://example.com/item3",
             summary="탄도탄 요격 방공체계인 천궁-II의 해외 러브콜이 이어지고 있다."
         )
         classified3 = self.news_service.classify_article(item3)
         self.assertIn("유도무기/방공", classified3.domains)
         self.assertIn("해외수출/계약", classified3.domains)
-        self.assertIn("LIG넥스원", classified3.companies)
+        self.assertIn("LIG D&A", classified3.companies)
 
         # 4. 해군 잠수함 / 한화오션 기사
         item4 = NewsItem(

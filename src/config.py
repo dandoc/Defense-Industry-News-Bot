@@ -36,7 +36,7 @@ class Config:
     # 기본 국방/방산 검색 쿼리 목록
     DEFAULT_QUERIES: list[str] = [
         '국방 OR 방산 OR 방위산업 OR "K-방산"',
-        '한화에어로스페이스 OR LIG넥스원 OR 현대로템 OR 한국항공우주',
+        '한화에어로스페이스 OR "LIG D&A" OR LIG넥스원 OR 현대로템 OR 한국항공우주',
         '방위사업청 OR 국방부',
         'KF-21 OR "K2 전차" OR 천궁 OR 장보고'
     ]

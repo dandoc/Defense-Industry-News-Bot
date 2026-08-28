@@ -198,7 +198,7 @@ async def settings_status(interaction: discord.Interaction):
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🛡️ 국방·방산 뉴스 알리미 봇 도움말",
-        description="대한민국 국방부, 방위사업청, K-방산 주요 기업(한화, KAI, LIG넥스원, 현대로템 등)의 최신 뉴스를 실시간으로 전달합니다.",
+        description="대한민국 국방부, 방위사업청, K-방산 주요 기업(한화, KAI, LIG D&A, 현대로템 등)의 최신 뉴스를 실시간으로 전달합니다.",
         color=0x5865F2
     )
     embed.add_field(
@@ -224,7 +224,7 @@ async def help_command(interaction: discord.Interaction):
         value=(
             "• 🪖 **군종**: 육군, 해군, 공군, 해병대, 우주/사이버, 국방부/방사청\n"
             "• 🔬 **산업분야**: 유도무기/방공, 항공/우주/드론, 기갑/화력/기동, 함정/해양, 지휘통신/레이더, 방산수출/계약\n"
-            "• 🏢 **방산기업**: 한화에어로스페이스, KAI, LIG넥스원, 현대로템, HD현대중공업, 풍산 등"
+            "• 🏢 **방산기업**: 한화에어로스페이스, KAI, LIG D&A, 현대로템, HD현대중공업, 풍산 등"
         ),
         inline=False
     )
