@@ -54,4 +54,4 @@ jobs:
         if: always()
         with:
           path: data/news.db
-          key: news-db-${{ github.run_id }}
+          key: news-db-${{ github.run_id }}-${{ github.run_attempt }}
