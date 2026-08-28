@@ -47,4 +47,4 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add data/news.db
           # 변경사항이 있을 때만 커밋 & 푸시
-          git diff --staged --quiet || (git commit -m "chore: update sent news db cache [skip ci]" && git push)
+          git diff --staged --quiet || (git commit -m "chore: update sent news db cache [skip ci]" && git pull --rebase origin main && git push)
