@@ -72,17 +72,18 @@ def send_article_to_discord(webhook_url: str, item: NewsItem) -> bool:
 
 
 async def run_cron():
-    discord_webhook = os.getenv("DISCORD_WEBHOOK_URL", "").strip() or Config.DISCORD_WEBHOOK_URL
+    discord_webhook_raw = os.getenv("DISCORD_WEBHOOK_URL", "").strip() or Config.DISCORD_WEBHOOK_URL
+    discord_webhooks = [u.strip() for u in discord_webhook_raw.replace("\n", ",").split(",") if u.strip()]
     has_kakao = bool(Config.KAKAO_REST_API_KEY and Config.KAKAO_REFRESH_TOKEN)
 
-    if not discord_webhook and not has_kakao:
+    if not discord_webhooks and not has_kakao:
         print("❌ [Error] 알림 대상이 설정되지 않았습니다.")
         print("DISCORD_WEBHOOK_URL 또는 KAKAO_REFRESH_TOKEN 설정을 확인해주세요.")
         sys.exit(1)
 
     print("=" * 60)
     print("🛡️ 국방·방산 뉴스 크롤러 & 브로드캐스터 시작")
-    print(f"• 디스코드 알림 : {'✅ 활성화' if discord_webhook else '❌ 비활성화'}")
+    print(f"• 디스코드 알림 : {'✅ 활성화 (' + str(len(discord_webhooks)) + '개 웹훅 채널)' if discord_webhooks else '❌ 비활성화'}")
     print(f"• 카카오톡 알림 : {'✅ 활성화 (나와의 채팅)' if has_kakao else '❌ 비활성화'}")
     print("=" * 60)
 
@@ -99,10 +100,10 @@ async def run_cron():
     for idx, item in enumerate(unseen_items, 1):
         print(f"\n[{idx}/{len(unseen_items)}] {item.badge} {item.title}")
 
-        # A. 디스코드 전송
-        if discord_webhook:
-            d_ok = send_article_to_discord(discord_webhook, item)
-            print(f"  └ [디스코드] {'성공' if d_ok else '실패'}")
+        # A. 디스코드 다중 웹훅 전송
+        for w_idx, webhook_url in enumerate(discord_webhooks, 1):
+            d_ok = send_article_to_discord(webhook_url, item)
+            print(f"  └ [디스코드 채널 #{w_idx}] {'성공' if d_ok else '실패'}")
 
         # B. 카카오톡 전송
         if has_kakao:
