@@ -117,7 +117,18 @@ python src/bot.py
 ```
 > 봇이 켜지면 슬래시 커맨드가 자동 등록되며, `/알림설정_채널`로 지정된 채널에 15분마다 새 국방/방산 뉴스가 전송됩니다.
 
-### 방법 2. 단독 테스트 및 웹훅 브로드캐스트
+### 방법 2. 24시간 완전 무료 자동화 (GitHub Actions + 웹훅, 내 컴퓨터 꺼도 작동!)
+> **컴퓨터 끄기 가능 / 서버 비용 0원 / 30분마다 자동 실행**
+
+1. 디스코드에서 알림 받을 채널 우클릭 → `채널 편집` → `연동` → `웹후크` → **웹후크 URL 복사**
+2. 이 프로젝트를 내 **GitHub 저장소(Private/Public)**에 푸시합니다.
+3. GitHub 저장소 페이지의 `Settings` → `Secrets and variables` → `Actions` → **New repository secret** 클릭
+   - Name: `DISCORD_WEBHOOK_URL`
+   - Secret: 복사한 디스코드 웹후크 URL 입력
+4. 이제 **GitHub 서버가 30분마다 알아서 뉴스를 수집해 디스코드로 쏴줍니다!**
+   - GitHub Actions 탭에서 `국방·방산 뉴스 자동 알림` 워크플로우를 수동 실행(`Run workflow`)하여 바로 테스트할 수도 있습니다.
+
+### 방법 3. 단독 테스트 및 로컬 웹훅 브로드캐스트
 디스코드 봇 토큰 없이도 로컬에서 즉시 수집/태그를 테스트하거나 Webhook URL로 발송할 수 있습니다:
 ```bash
 python standalone_broadcast.py
