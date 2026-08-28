@@ -33,6 +33,10 @@ class Config:
     NAVER_CLIENT_ID: str = os.getenv("NAVER_CLIENT_ID", "").strip()
     NAVER_CLIENT_SECRET: str = os.getenv("NAVER_CLIENT_SECRET", "").strip()
 
+    # 카카오톡 '나에게 보내기' API 설정 (선택 사항)
+    KAKAO_REST_API_KEY: str = os.getenv("KAKAO_REST_API_KEY", "").strip()
+    KAKAO_REFRESH_TOKEN: str = os.getenv("KAKAO_REFRESH_TOKEN", "").strip()
+
     # 기본 국방/방산 검색 쿼리 목록
     DEFAULT_QUERIES: list[str] = [
         '국방 OR 방산 OR 방위산업 OR "K-방산"',

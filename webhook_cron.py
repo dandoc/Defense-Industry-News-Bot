@@ -1,7 +1,7 @@
 """
-GitHub Actions 및 스케줄러 전용 웹훅 뉴스 브로드캐스터 (webhook_cron.py)
-- 환경변수 DISCORD_WEBHOOK_URL을 읽어 새로운 국방/방산 뉴스를 디스코드 채널로 전송합니다.
-- SQLite DB(data/news.db)에 전송 이력을 기록하여 중복 전송을 완벽히 방지합니다.
+GitHub Actions 및 스케줄러 전용 웹훅 & 카카오톡 뉴스 브로드캐스터 (webhook_cron.py)
+- 디스코드 웹훅(DISCORD_WEBHOOK_URL) 및 카카오톡 나에게 보내기(KAKAO_REFRESH_TOKEN) 지원
+- SQLite DB(data/news.db)에 전송 이력을 기록하여 중복 전송 방지
 """
 
 import os
@@ -11,7 +11,7 @@ import json
 import urllib.request
 from typing import List
 
-# Windows/Linux 콘솔 인코딩 UTF-8
+# 콘솔 인코딩 UTF-8
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 if hasattr(sys.stderr, "reconfigure"):
@@ -19,11 +19,12 @@ if hasattr(sys.stderr, "reconfigure"):
 
 from src.config import Config
 from src.services.news_service import news_service
-from src.collectors.base import NewsItem
 from src.services.embed_builder import CATEGORY_COLORS
+from src.services.kakao_sender import kakao_sender
+from src.collectors.base import NewsItem
 
 
-def send_article_to_webhook(webhook_url: str, item: NewsItem) -> bool:
+def send_article_to_discord(webhook_url: str, item: NewsItem) -> bool:
     """단일 뉴스 카드를 디스코드 웹훅으로 전송"""
     branches_str = " ".join(f"`{b}`" for b in item.branches) if item.branches else "`전군/공통`"
     domains_str = " ".join(f"`{d}`" for d in item.domains) if item.domains else "`종합방산`"
@@ -66,20 +67,23 @@ def send_article_to_webhook(webhook_url: str, item: NewsItem) -> bool:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.status in (200, 204)
     except Exception as e:
-        print(f"[Webhook Error] 전송 실패: {e}")
+        print(f"[Discord Error] 전송 실패: {e}")
         return False
 
 
 async def run_cron():
-    webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "").strip() or Config.DISCORD_WEBHOOK_URL
+    discord_webhook = os.getenv("DISCORD_WEBHOOK_URL", "").strip() or Config.DISCORD_WEBHOOK_URL
+    has_kakao = bool(Config.KAKAO_REST_API_KEY and Config.KAKAO_REFRESH_TOKEN)
 
-    if not webhook_url:
-        print("❌ [Error] DISCORD_WEBHOOK_URL 환경변수가 설정되지 않았습니다.")
-        print("GitHub 저장소의 Settings -> Secrets and variables -> Actions 에서 등록해주세요.")
+    if not discord_webhook and not has_kakao:
+        print("❌ [Error] 알림 대상이 설정되지 않았습니다.")
+        print("DISCORD_WEBHOOK_URL 또는 KAKAO_REFRESH_TOKEN 설정을 확인해주세요.")
         sys.exit(1)
 
     print("=" * 60)
-    print("🛡️ GitHub Actions 국방·방산 뉴스 크롤러 시작")
+    print("🛡️ 국방·방산 뉴스 크롤러 & 브로드캐스터 시작")
+    print(f"• 디스코드 알림 : {'✅ 활성화' if discord_webhook else '❌ 비활성화'}")
+    print(f"• 카카오톡 알림 : {'✅ 활성화 (나와의 채팅)' if has_kakao else '❌ 비활성화'}")
     print("=" * 60)
 
     # 1. 새 뉴스 확인 (최대 5건)
@@ -89,21 +93,25 @@ async def run_cron():
         print("✅ 새로 발견된 국방/방산 뉴스가 없습니다. (이미 최신 상태)")
         return
 
-    print(f"📢 {len(unseen_items)}건의 새로운 국방/방산 뉴스를 감지했습니다! 디스코드로 전송합니다...")
+    print(f"📢 {len(unseen_items)}건의 새로운 국방/방산 뉴스를 감지했습니다!")
 
-    # 2. 각 기사 웹훅 전송
-    success_count = 0
+    # 2. 각 기사 전송
     for idx, item in enumerate(unseen_items, 1):
-        print(f"[{idx}/{len(unseen_items)}] {item.badge} {item.title}")
-        success = send_article_to_webhook(webhook_url, item)
-        if success:
-            success_count += 1
-            print("    └ 전송 성공!")
-        else:
-            print("    └ 전송 실패!")
-        await asyncio.sleep(1)  # 디스코드 속도 제한 방지
+        print(f"\n[{idx}/{len(unseen_items)}] {item.badge} {item.title}")
 
-    print(f"\n🎉 총 {success_count}/{len(unseen_items)}건의 뉴스를 성공적으로 전송 완료했습니다.")
+        # A. 디스코드 전송
+        if discord_webhook:
+            d_ok = send_article_to_discord(discord_webhook, item)
+            print(f"  └ [디스코드] {'성공' if d_ok else '실패'}")
+
+        # B. 카카오톡 전송
+        if has_kakao:
+            k_ok = kakao_sender.send_news_item(item)
+            print(f"  └ [카카오톡] {'성공' if k_ok else '실패'}")
+
+        await asyncio.sleep(1)  # 속도 제한 방지
+
+    print("\n🎉 모든 알림 전송 처리가 완료되었습니다.")
 
 
 if __name__ == "__main__":
