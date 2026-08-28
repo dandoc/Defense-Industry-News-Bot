@@ -1,7 +1,7 @@
 """
 네이버 뉴스 수집기
-- 네이버 오픈 API (Client ID / Secret 등록 시 고속 JSON 수집)
-- API 키가 없는 경우에도 안전하게 스킵하거나 대체 처리
+- 네이버 클라우드 플랫폼(NCP) NAVER API HUB 및 기존 네이버 개발자 센터 API 동시 지원
+- API 키가 설정되지 않은 경우 안전하게 스킵 처리
 """
 
 import html
@@ -16,7 +16,10 @@ from src.config import Config
 
 
 class NaverNewsCollector(BaseNewsCollector):
-    API_URL = "https://openapi.naver.com/v1/search/news.json"
+    # 1. 네이버 클라우드 플랫폼 (NCP) NAVER API HUB 엔드포인트
+    NCP_API_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+    # 2. 기존 개발자 센터 엔드포인트 (레거시)
+    LEGACY_API_URL = "https://openapi.naver.com/v1/search/news.json"
 
     def __init__(self):
         super().__init__(name="Naver News")
@@ -24,7 +27,6 @@ class NaverNewsCollector(BaseNewsCollector):
     def _clean_text(self, text: str) -> str:
         if not text:
             return ""
-        # 네이버 API는 <b>태그와 &quot; 등 HTML 엔티티를 반환함
         soup = BeautifulSoup(text, "html.parser")
         cleaned = soup.get_text(separator=" ", strip=True)
         return html.unescape(cleaned)
@@ -34,52 +36,71 @@ class NaverNewsCollector(BaseNewsCollector):
         client_secret = Config.NAVER_CLIENT_SECRET
 
         if not client_id or not client_secret:
-            # API 키가 설정되지 않은 경우 조용히 빈 리스트 반환
             return []
 
         search_query = query if query else "방산 OR 국방 OR 방위산업"
         params = {
             "query": search_query,
             "display": min(limit, 20),
-            "sort": "sim"  # 유사도순 (sim) 또는 최신순 (date)
+            "sort": "sim"
         }
-        headers = {
-            "X-Naver-Client-Id": client_id,
-            "X-Naver-Client-Secret": client_secret,
-            "User-Agent": "DefenseNewsBot/1.0"
-        }
+
+        # 먼저 NCP NAVER API HUB 방식으로 시도, 실패 시 레거시 방식으로 폴백
+        auth_configs = [
+            {
+                "url": self.NCP_API_URL,
+                "headers": {
+                    "X-NCP-APIGW-API-KEY-ID": client_id,
+                    "X-NCP-APIGW-API-KEY": client_secret,
+                    "User-Agent": "DefenseNewsBot/1.0"
+                }
+            },
+            {
+                "url": self.LEGACY_API_URL,
+                "headers": {
+                    "X-Naver-Client-Id": client_id,
+                    "X-Naver-Client-Secret": client_secret,
+                    "User-Agent": "DefenseNewsBot/1.0"
+                }
+            }
+        ]
 
         items: List[NewsItem] = []
-        try:
-            async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=8)) as session:
-                async with session.get(self.API_URL, params=params) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        for item in data.get("items", []):
-                            title = self._clean_text(item.get("title", ""))
-                            link = item.get("originallink") or item.get("link", "")
-                            description = self._clean_text(item.get("description", ""))
-                            pub_date_raw = item.get("pubDate", "")
 
-                            # pubDate 파싱 (예: Fri, 28 Aug 2026 14:00:00 +0900)
-                            try:
-                                dt = datetime.strptime(pub_date_raw, "%a, %d %b %Y %H:%M:%S %z")
-                                published_at = dt.strftime("%Y-%m-%d %H:%M")
-                            except Exception:
-                                published_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+        for config in auth_configs:
+            try:
+                async with aiohttp.ClientSession(headers=config["headers"], timeout=aiohttp.ClientTimeout(total=8)) as session:
+                    async with session.get(config["url"], params=params) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            for item in data.get("items", []):
+                                title = self._clean_text(item.get("title", ""))
+                                link = item.get("originallink") or item.get("link", "")
+                                description = self._clean_text(item.get("description", ""))
+                                pub_date_raw = item.get("pubDate", "")
 
-                            items.append(NewsItem(
-                                title=title,
-                                url=link,
-                                source="네이버 뉴스",
-                                summary=description,
-                                published_at=published_at
-                            ))
-                            if len(items) >= limit:
-                                break
-                    else:
-                        print(f"[NaverNewsCollector] API responded with status {resp.status}")
-        except Exception as e:
-            print(f"[NaverNewsCollector] Request failed: {e}")
+                                try:
+                                    dt = datetime.strptime(pub_date_raw, "%a, %d %b %Y %H:%M:%S %z")
+                                    published_at = dt.strftime("%Y-%m-%d %H:%M")
+                                except Exception:
+                                    published_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+                                items.append(NewsItem(
+                                    title=title,
+                                    url=link,
+                                    source="네이버 뉴스",
+                                    summary=description,
+                                    published_at=published_at
+                                ))
+                                if len(items) >= limit:
+                                    break
+                            if items:
+                                return items
+                        elif resp.status in (401, 403):
+                            # 다음 인증 방식 시도
+                            continue
+            except Exception as e:
+                # 다음 인증 시도
+                continue
 
         return items
