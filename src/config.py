@@ -29,6 +29,12 @@ class Config:
     _raw_keywords = os.getenv("CUSTOM_KEYWORDS", "")
     CUSTOM_KEYWORDS: list[str] = [k.strip() for k in _raw_keywords.split(",") if k.strip()]
 
+    # 기업 타겟팅 (쉼표 구분). 설정 시 해당 기업이 분류된 기사만 알림으로 보냅니다.
+    _raw_target_companies = os.getenv("TARGET_COMPANIES", "")
+    TARGET_COMPANIES: list[str] = [c.strip() for c in _raw_target_companies.split(",") if c.strip()]
+    # only: 지정 기업 기사만, prioritize: 지정 기업 우선 + 방산업계 핵심 뉴스 포함
+    TARGET_COMPANY_MODE: str = os.getenv("TARGET_COMPANY_MODE", "prioritize").strip().lower()
+
     # 네이버 API 설정 (선택 사항)
     NAVER_CLIENT_ID: str = os.getenv("NAVER_CLIENT_ID", "").strip()
     NAVER_CLIENT_SECRET: str = os.getenv("NAVER_CLIENT_SECRET", "").strip()

@@ -18,6 +18,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 from src.config import Config
 from src.services.news_service import news_service
+from src.db import db
 from src.services.kakao_sender import kakao_sender
 from src.collectors.base import NewsItem
 
@@ -91,7 +92,9 @@ async def run_standalone():
         print(f"\n[Discord] 웹훅 전송 테스트 중...")
         unseen = await news_service.get_unseen_news(limit=2)
         for item in unseen:
-            success = send_to_discord_webhook(Config.DISCORD_WEBHOOK_URL, item)
+            success = await asyncio.to_thread(send_to_discord_webhook, Config.DISCORD_WEBHOOK_URL, item)
+            if success:
+                db.mark_article_sent(item.id, item.url, item.title, item.source, item.category, item.published_at)
             print(f" - [{ '성공' if success else '실패' }] {item.title}")
 
     # 3. 카카오톡 나에게 보내기 전송

@@ -6,8 +6,9 @@ Google News RSS는 차단 없이 실시간으로 국내외 언론사의 방산 �
 import urllib.parse
 import asyncio
 from typing import List, Optional
-from datetime import datetime
-import time
+from datetime import datetime, timezone
+import calendar
+from zoneinfo import ZoneInfo
 import aiohttp
 import feedparser
 from bs4 import BeautifulSoup
@@ -62,7 +63,7 @@ class GoogleNewsCollector(BaseNewsCollector):
             # 발행 시각 파싱
             published_parsed = entry.get("published_parsed")
             if published_parsed:
-                dt = datetime.fromtimestamp(time.mktime(published_parsed))
+                dt = datetime.fromtimestamp(calendar.timegm(published_parsed), tz=timezone.utc).astimezone(ZoneInfo("Asia/Seoul"))
                 published_at = dt.strftime("%Y-%m-%d %H:%M")
             else:
                 published_at = datetime.now().strftime("%Y-%m-%d %H:%M")

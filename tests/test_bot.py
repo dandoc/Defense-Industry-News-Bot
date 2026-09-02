@@ -11,9 +11,11 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 from src.collectors.base import NewsItem
 from src.services.news_service import NewsService
+from src.config import Config
 from src.services.embed_builder import EmbedBuilder
 from src.db import Database
 
@@ -85,6 +87,33 @@ class TestDefenseNewsBot(unittest.TestCase):
         self.assertIn("함정/해양/잠수함", classified4.domains)
         self.assertIn("한화오션", classified4.companies)
 
+    def test_target_company_filter(self):
+        """기업 타겟 모드에서는 지정 기업으로 분류된 기사만 통과한다."""
+        target_item = NewsItem(title="현대로템 K2 전차 수출", url="https://example.com/target")
+        other_item = NewsItem(title="한화오션 잠수함 수주", url="https://example.com/other")
+        self.news_service.classify_article(target_item)
+        self.news_service.classify_article(other_item)
+
+        with patch.object(Config, "TARGET_COMPANIES", ["로템"]):
+            self.assertTrue(self.news_service.is_target_company_article(target_item))
+            self.assertFalse(self.news_service.is_target_company_article(other_item))
+
+        lg_item = NewsItem(title="LG 이노텍, 방산용 광학 솔루션 공급", url="https://example.com/lg-innotek")
+        self.news_service.classify_article(lg_item)
+        with patch.object(Config, "TARGET_COMPANIES", ["LG Innotek"]):
+            self.assertTrue(self.news_service.is_target_company_article(lg_item))
+
+    def test_target_priority_mode_keeps_core_industry_news(self):
+        """기본 타겟 모드는 지정 기업 뉴스와 업계 핵심 뉴스를 함께 우선시한다."""
+        target_item = NewsItem(title="현대로템, K2 전차 수출 계약", url="https://example.com/target-priority")
+        core_item = NewsItem(title="방위사업청, 차세대 레이더 사업 입찰 공고", url="https://example.com/core-priority")
+        self.news_service.classify_article(target_item)
+        self.news_service.classify_article(core_item)
+
+        with patch.object(Config, "TARGET_COMPANIES", ["현대로템"]):
+            self.assertGreater(self.news_service._article_priority(target_item), 0)
+            self.assertTrue(self.news_service.is_industry_core_article(core_item))
+
     def test_database_deduplication(self):
         """SQLite 중복 저장 방지 및 조회 검증"""
         item = NewsItem(
@@ -116,6 +145,24 @@ class TestDefenseNewsBot(unittest.TestCase):
             title=item.title
         )
         self.assertFalse(dup_success)  # INSERT OR IGNORE 로 rowcount 0
+
+    def test_unseen_news_is_not_marked_until_delivery_succeeds(self):
+        """발송 전 DB 기록은 실패한 알림을 영구 누락시킬 수 있다."""
+        item = NewsItem(
+            title="발송 전 기록 방지 검증",
+            url="https://example.com/delivery-state",
+            source="테스트"
+        )
+        service = NewsService()
+        service.fetch_all_news = AsyncMock(return_value=[item])
+
+        with patch("src.services.news_service.db") as shared_db:
+            shared_db.is_article_sent.return_value = False
+            import asyncio
+            unseen = asyncio.run(service.get_unseen_news())
+
+        self.assertEqual(unseen, [item])
+        shared_db.mark_article_sent.assert_not_called()
 
     def test_guild_settings_storage(self):
         """서버별 알림 채널 저장 및 조회 검증"""

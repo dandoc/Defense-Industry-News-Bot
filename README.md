@@ -111,7 +111,7 @@ git push -u origin main
 
 #### 3단계: 즉시 테스트 및 자동 실행 확인
 - 저장소 상단의 **`Actions`** 탭 → 좌측의 **`국방·방산 뉴스 자동 알림`** → **`Run workflow`**를 누르면 즉시 1회 실행되어 디스코드로 뉴스가 전송됩니다.
-- 이후에는 **컴퓨터를 꺼두셔도 30분마다 GitHub가 알아서 실행**합니다.
+- 이후에는 **컴퓨터를 꺼두셔도 30분마다 GitHub가 알아서 실행**합니다. (UTC 기준 매시 07분·37분)
 
 ---
 
@@ -138,7 +138,11 @@ CHECK_INTERVAL_MINUTES=15
 MAX_ARTICLES_PER_CHECK=5
 NAVER_CLIENT_ID=선택사항_네이버ID
 NAVER_CLIENT_SECRET=선택사항_네이버Secret
+TARGET_COMPANIES=현대자동차,LIG D&A,한화에어로스페이스,현대로템,LG이노텍,KAI
+TARGET_COMPANY_MODE=prioritize
 ```
+
+`TARGET_COMPANIES`를 설정하면 지정 기업을 우선 수집·발송합니다. 기본 `TARGET_COMPANY_MODE=prioritize`는 지정 기업 뉴스와 수주·입찰·양산·수출·예산 등 방산업계 핵심 뉴스를 함께 보냅니다. 지정 기업 기사만 원하면 `TARGET_COMPANY_MODE=only`로 설정하세요. 기업명은 `현대자동차`, `LIG D&A`, `한화에어로스페이스`, `현대로템`, `LG이노텍`, `한화시스템`, `한화오션`, `KAI(한국항공우주)`, `HD현대중공업`, `풍산`, `대한항공` 등 코드의 분류명과 동일하게 입력하세요.
 
 #### 3단계: 봇 실행
 ```bash

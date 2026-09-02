@@ -45,7 +45,9 @@ COMPANY_RULES = {
     "KAI(한국항공우주)": ["한국항공우주산업", "한국항공우주", "KAI"],
     "LIG D&A": ["LIG D&A", "LIG디앤에이", "LIG D&A", "LIG넥스원", "LIG 넥스원", "넥스원", "엘아이지디앤에이"],
     "현대로템": ["현대로템", "로템"],
+    "현대자동차": ["현대자동차", "현대차", "Hyundai Motor"],
     "HD현대중공업": ["HD현대중공업", "HD현대", "현대중공업"],
+    "LG이노텍": ["LG이노텍", "LG 이노텍", "LG Innotek"],
     "풍산": ["풍산", "POONGSAN"],
     "대한항공": ["대한항공 항공우주", "대한항공"],
     "SNT모티브/다이내믹스": ["SNT모티브", "SNT다이내믹스", "SNT중공업"],
@@ -61,7 +63,8 @@ class NewsService:
             NaverNewsCollector()
         ]
 
-    def _match_keywords(self, text: str, keywords: List[str]) -> bool:
+    @staticmethod
+    def _match_keywords(text: str, keywords: List[str]) -> bool:
         text_lower = text.lower()
         for kw in keywords:
             if kw.lower() in text_lower:
@@ -121,6 +124,45 @@ class NewsService:
 
         return item
 
+    @staticmethod
+    def is_target_company_article(item: NewsItem) -> bool:
+        """타겟 기업이 설정된 경우, 해당 기업으로 분류된 기사만 통과시킵니다."""
+        if not Config.TARGET_COMPANIES:
+            return True
+        target_companies = set()
+        for configured_name in Config.TARGET_COMPANIES:
+            configured_key = configured_name.casefold()
+            for canonical_name, aliases in COMPANY_RULES.items():
+                if configured_key == canonical_name.casefold() or any(configured_key == alias.casefold() for alias in aliases):
+                    target_companies.add(canonical_name.casefold())
+                    break
+            else:
+                target_companies.add(configured_key)
+
+        return any(company.casefold() in target_companies for company in item.companies)
+
+    @staticmethod
+    def is_industry_core_article(item: NewsItem) -> bool:
+        """방산업계 의사결정에 직접 영향을 주는 핵심 신호인지 판별합니다."""
+        if "해외수출/계약" in item.domains:
+            return True
+        core_signals = [
+            "수주", "계약", "입찰", "사업자 선정", "우선협상", "양산", "인도",
+            "전력화", "방위력개선", "방추위", "획득사업", "국방예산", "MRO",
+            "공급망", "합작", "기술협력", "수출"
+        ]
+        full_text = f"{item.title} {item.summary}"
+        return NewsService._match_keywords(full_text, core_signals)
+
+    def _article_priority(self, item: NewsItem) -> int:
+        """기업 타겟과 업계 핵심 신호를 기준으로 발송 우선순위를 산정합니다."""
+        score = 0
+        if self.is_target_company_article(item):
+            score += 100
+        if self.is_industry_core_article(item):
+            score += 50
+        return score
+
     async def fetch_all_news(self, query: Optional[str] = None, limit: int = 15) -> List[NewsItem]:
         """모든 수집기로부터 뉴스 병렬 수집 및 다차원 태깅"""
         tasks = [collector.fetch_news(query=query, limit=limit) for collector in self.collectors]
@@ -152,26 +194,45 @@ class NewsService:
                 except Exception as e:
                     print(f"[NewsService] Custom keyword '{kw}' fetch failed: {e}")
 
-        # 발행시각 기준 최신순 정렬
-        all_items.sort(key=lambda x: x.published_at, reverse=True)
+        # 타겟 기업은 기본 검색어에 빠질 수 있으므로 기업명으로도 별도 수집합니다.
+        if not query and Config.TARGET_COMPANIES:
+            for company in Config.TARGET_COMPANIES:
+                try:
+                    # 일반 기업 뉴스가 섞이지 않도록 방산 관련 신호와 함께 검색합니다.
+                    company_query = f'{company} (방산 OR 방위산업 OR 국방 OR 군용 OR MRO OR 방산수출)'
+                    company_items = await GoogleNewsCollector().fetch_news(query=company_query, limit=5)
+                    for item in company_items:
+                        if item.id not in seen_ids:
+                            seen_ids.add(item.id)
+                            all_items.append(self.classify_article(item))
+                except Exception as e:
+                    print(f"[NewsService] Target company '{company}' fetch failed: {e}")
+
+            if Config.TARGET_COMPANY_MODE == "only":
+                all_items = [item for item in all_items if self.is_target_company_article(item)]
+            else:
+                # 기본 모드: 지정 기업 뉴스와 방산업계 핵심 신호를 함께 남깁니다.
+                all_items = [
+                    item for item in all_items
+                    if self.is_target_company_article(item) or self.is_industry_core_article(item)
+                ]
+
+        # 타겟 기업 > 업계 핵심 신호 > 발행시각 순으로 정렬
+        all_items.sort(key=lambda x: (self._article_priority(x), x.published_at), reverse=True)
         return all_items[:limit]
 
     async def get_unseen_news(self, limit: int = 5) -> List[NewsItem]:
-        """아직 전송되지 않은 새 기사만 선별하고 DB에 저장"""
+        """아직 전송되지 않은 새 기사를 선별합니다.
+
+        전송 이력 기록은 호출자가 실제 전송에 성공한 뒤 수행해야 합니다.
+        그렇지 않으면 일시적인 발송 실패가 영구 누락으로 이어집니다.
+        """
         all_news = await self.fetch_all_news(limit=25)
         unseen: List[NewsItem] = []
 
         for item in all_news:
             if not db.is_article_sent(item.id, item.url):
                 unseen.append(item)
-                db.mark_article_sent(
-                    article_id=item.id,
-                    url=item.url,
-                    title=item.title,
-                    source=item.source,
-                    category=item.category,
-                    published_at=item.published_at
-                )
                 if len(unseen) >= limit:
                     break
 

@@ -2,13 +2,17 @@ name: 국방·방산 뉴스 자동 알림 (24/7 Webhook)
 
 on:
   schedule:
-    # 30분마다 자동 실행 (UTC 기준: 매시 0분, 30분)
-    - cron: '*/30 * * * *'
+    # 30분마다 자동 실행. 정각 혼잡을 피해 UTC 기준 매시 07분, 37분에 실행합니다.
+    - cron: '7,37 * * * *'
   # GitHub Actions 탭에서 수동 실행(Run workflow) 버튼 제공
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: defense-news-broadcast
+  cancel-in-progress: false
 
 jobs:
   broadcast_news:
@@ -42,6 +46,8 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           CUSTOM_KEYWORDS: ${{ secrets.CUSTOM_KEYWORDS }}
+          TARGET_COMPANIES: ${{ secrets.TARGET_COMPANIES }}
+          TARGET_COMPANY_MODE: ${{ secrets.TARGET_COMPANY_MODE }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}

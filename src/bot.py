@@ -75,6 +75,8 @@ class DefenseNewsBot(commands.Bot):
                 print("[Bot] Warning: No target channels configured. Use /알림설정 채널 to register.")
                 return
 
+            delivery_success = {article.id: True for article in new_articles}
+
             # 각 채널로 임베드 전송
             for channel_id in target_channel_ids:
                 channel = self.get_channel(channel_id)
@@ -91,7 +93,18 @@ class DefenseNewsBot(commands.Bot):
                             await channel.send(embed=embed)
                             await asyncio.sleep(0.5)  # 속도 조절
                         except Exception as e:
+                            delivery_success[article.id] = False
                             print(f"[Bot] Failed to send message to channel {channel_id}: {e}")
+                else:
+                    print(f"[Bot] Failed to resolve channel {channel_id}")
+                    for article in new_articles:
+                        delivery_success[article.id] = False
+
+            for article in new_articles:
+                if delivery_success[article.id]:
+                    db.mark_article_sent(article.id, article.url, article.title, article.source, article.category, article.published_at)
+                else:
+                    print(f"[Bot] Will retry article after a delivery failure: {article.title}")
         except Exception as e:
             print(f"[Bot Error] News check loop encountered error: {e}")
 
