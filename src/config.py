@@ -20,7 +20,8 @@ class Config:
 
     # 수집 및 스케줄링 설정
     CHECK_INTERVAL_MINUTES: int = int(os.getenv("CHECK_INTERVAL_MINUTES", "15"))
-    MAX_ARTICLES_PER_CHECK: int = int(os.getenv("MAX_ARTICLES_PER_CHECK", "5"))
+    _max_articles_raw = os.getenv("MAX_ARTICLES_PER_CHECK", "10").strip()
+    MAX_ARTICLES_PER_CHECK: int = int(_max_articles_raw) if _max_articles_raw.isdigit() and int(_max_articles_raw) > 0 else 10
 
     # 데이터베이스 설정
     DB_PATH: Path = BASE_DIR / os.getenv("DB_PATH", "data/news.db")

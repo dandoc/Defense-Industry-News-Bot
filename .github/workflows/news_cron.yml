@@ -45,6 +45,7 @@ jobs:
       - name: 국방·방산 뉴스 수집 및 웹훅 발송
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MAX_ARTICLES_PER_CHECK: ${{ secrets.MAX_ARTICLES_PER_CHECK }}
           CUSTOM_KEYWORDS: ${{ secrets.CUSTOM_KEYWORDS }}
           TARGET_COMPANIES: ${{ secrets.TARGET_COMPANIES }}
           TARGET_COMPANY_MODE: ${{ secrets.TARGET_COMPANY_MODE }}

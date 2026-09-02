@@ -135,7 +135,7 @@ cp .env.example .env
 ```env
 DISCORD_TOKEN=발급받은_디스코드_봇_토큰
 CHECK_INTERVAL_MINUTES=15
-MAX_ARTICLES_PER_CHECK=5
+MAX_ARTICLES_PER_CHECK=10
 NAVER_CLIENT_ID=선택사항_네이버ID
 NAVER_CLIENT_SECRET=선택사항_네이버Secret
 TARGET_COMPANIES=현대자동차,LIG D&A,한화에어로스페이스,현대로템,LG이노텍,KAI
@@ -143,6 +143,8 @@ TARGET_COMPANY_MODE=prioritize
 ```
 
 `TARGET_COMPANIES`를 설정하면 지정 기업을 우선 수집·발송합니다. 기본 `TARGET_COMPANY_MODE=prioritize`는 지정 기업 뉴스와 수주·입찰·양산·수출·예산 등 방산업계 핵심 뉴스를 함께 보냅니다. 지정 기업 기사만 원하면 `TARGET_COMPANY_MODE=only`로 설정하세요. 기업명은 `현대자동차`, `LIG D&A`, `한화에어로스페이스`, `현대로템`, `LG이노텍`, `한화시스템`, `한화오션`, `KAI(한국항공우주)`, `HD현대중공업`, `풍산`, `대한항공` 등 코드의 분류명과 동일하게 입력하세요.
+
+한 번에 보낼 최대 기사 수는 `MAX_ARTICLES_PER_CHECK`으로 조절하며 기본값은 10입니다. GitHub Actions에서는 같은 이름의 Repository Secret을 추가하면 원하는 값(예: `8`, `10`)으로 바꿀 수 있습니다.
 
 #### 3단계: 봇 실행
 ```bash
